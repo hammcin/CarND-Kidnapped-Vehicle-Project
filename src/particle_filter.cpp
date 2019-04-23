@@ -81,9 +81,9 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
      double new_theta = (theta_f + dist_theta(gen)) % (2*M_PI);
      particles[i].theta = new_theta;
 
-     double dx = (velocity/yaw_rate)*(std::sin(new_theta) - std::sin(theta_0));
+     double dx = (velocity/yaw_rate)*(sin(new_theta) - sin(theta_0));
      double x_f = x_0 + dx;
-     double dy = (velocity/yaw_rate)*(std::cos(theta_0) - std::cos(new_theta));
+     double dy = (velocity/yaw_rate)*(cos(theta_0) - cos(new_theta));
      double y_f = y_0 + dy;
 
      double new_x = x_f + dist_x(gen);
@@ -105,6 +105,34 @@ void ParticleFilter::dataAssociation(vector<LandmarkObs> predicted,
    *   probably find it useful to implement this method and use it as a helper
    *   during the updateWeights phase.
    */
+
+   for (int i=0; i<observations.size(); ++i)
+   {
+     if (!predicted.empty())
+     {
+       double min_d = dist(predicted[i].x, predicted[i].y,
+                            observations[0].x, observations.y[0]);
+       observations[i].id = predicted[0].id;
+       int min_i = 0;
+
+       for (int j=1; j<predicted.size(); ++j)
+       {
+         double d = dist(predicted[i].x, predicted[i].y,
+                          observations[j].x, observations.y[j]);
+
+         if (d < min_d)
+         {
+           observations[i].id = predicted[j].id;
+           min_d = d;
+           min_i = j;
+         }
+       }
+
+       predicted.erase(predicted.begin()+min_i);
+
+     }
+
+   }
 
 }
 
