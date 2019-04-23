@@ -39,7 +39,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
   std::default_random_engine gen;
   normal_distribution<double> dist_x(x, std[0]);
   normal_distribution<double> dist_y(y, std[1]);
-  normal_distribution<double> dist_theta(theta, std[2]);
+  normal_distribution<double> dist_theta((theta % (2*M_PI)), std[2]);
 
   for (int i=0; i<num_particles; ++i)
   {
@@ -75,7 +75,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
    {
      double x_0 = particles[i].x;
      double y_0 = particles[i].y;
-     double theta_0 = particles[i].theta;
+     double theta_0 = particles[i].theta % (2*M_PI);
 
      double theta_f = theta_0 + yaw_rate*delta_t;
      double new_theta = (theta_f + dist_theta(gen)) % (2*M_PI);
@@ -110,15 +110,15 @@ void ParticleFilter::dataAssociation(vector<LandmarkObs> predicted,
    {
      if (!predicted.empty())
      {
-       double min_d = dist(predicted[i].x, predicted[i].y,
-                            observations[0].x, observations.y[0]);
+       double min_d = dist(predicted[0].x, predicted[0].y,
+                            observations[i].x, observations.y[i]);
        observations[i].id = predicted[0].id;
        int min_i = 0;
 
        for (int j=1; j<predicted.size(); ++j)
        {
-         double d = dist(predicted[i].x, predicted[i].y,
-                          observations[j].x, observations.y[j]);
+         double d = dist(predicted[j].x, predicted[j].y,
+                          observations[i].x, observations.y[i]);
 
          if (d < min_d)
          {
@@ -152,6 +152,89 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
    *   and the following is a good resource for the actual equation to implement
    *   (look at equation 3.33) http://planning.cs.uiuc.edu/node99.html
    */
+
+   for (int i=0; i<num_particles; ++i)
+   {
+
+     double x_part = particles[i].x;
+     double y_part = particles[i].y;
+     double theta = particles[i].theta % (2*M_PI);
+
+     vector<LandmarkObs> observations_trans;
+     for (int j=0; j<observations.size(); ++j)
+     {
+       double x_obs = observations[j].x;
+       double y_obs = observations[j].y;
+
+       LandmarkObs observation;
+       observation.x = x_part + (cos(theta)*x_obs) - (sin(theta)*y_obs);
+       observation.y = y_part + (sin(theta)*x_obs) + (cos(theta)*y_obs);
+
+       observations_trans.push_back(observation);
+     }
+
+     vector<LandmarkObs> predicted;
+     for (int j=0; j<map_landmarks.landmark_list.size(); ++j)
+     {
+       double x_landmark = map_landmarks.landmark_list[j].x_f;
+       double y_landmark = map_landmarks.landmark_list[j].y_f;
+       double d = dist(x_landmark, y_landmark, x_part, y_part);
+       if (d<sensor_range)
+       {
+         LandmarkObs landmark;
+         landmark.id = map_landmarks.landmark_list[j].id_i;
+         landmark.x = x_landmark;
+         landmark.y = y_landmark;
+
+         predicted.push_back(landmark);
+       }
+     }
+
+     dataAssociation(predicted, observations_trans);
+
+     vector<int> associations;
+     vector<double> sense_x;
+     vector<double> sense_y;
+
+     double sigma_x = std_landmark[0];
+     double sigma_y = std_landmark[1];
+     double gauss_norm = 1/(2*M_PI*sigma_x*sigma_y);
+     for (int j=0; j<observations_trans.size(); ++j)
+     {
+
+       double x_obs = observations_trans[j].x;
+       double y_obs = observations_trans[j].y;
+       int observe_id = observations_trans[j].id;
+
+       for (int k=0; k<predicted.size(); ++k)
+       {
+         int predicted_id = predicted[k].id;
+         if (predicted_id==observe_id)
+         {
+
+           double mu_x = predicted[k].x;
+           double mu_y = predicted[k].y;
+
+           associations.push_back(predicted_id);
+           sense_x.push_back(mu_x);
+           sense_y.push_back(mu_y);
+
+           double exponent = (pow(x_obs - mu_x, 2)/(2*pow(sigma_x, 2)))
+                              + (pow(y_obs-mu_y, 2)/(2*pow(sigma_y, 2)));
+
+           double gauss_prob = gauss_norm*exp(-exponent);
+
+           particles[i].weight *= gauss_prob;
+           weights[i] *= gauss_prob;
+         }
+       }
+     }
+
+     SetAssociations(particles[i], assocations, sense_x, sense_x);
+
+     observations_trans.clear();
+     predicted.clear();
+   }
 
 }
 
