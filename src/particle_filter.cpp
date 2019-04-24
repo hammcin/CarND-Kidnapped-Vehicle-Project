@@ -78,7 +78,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
      double theta_0 = particles[i].theta % (2*M_PI);
 
      double theta_f = (theta_0 + yaw_rate*delta_t) % (2*M_PI);
-     
+
      // double new_theta = theta_f + dist_theta(gen);
      normal_distribution<double> dist_theta(theta_f, std[2]);
      double new_theta = dist_theta(gen);
@@ -247,6 +247,18 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 
      observations_trans.clear();
      predicted.clear();
+   }
+
+   double weight_sum = 0;
+   for (int i=0; i<num_particles; ++i)
+   {
+     weight_sum += weights[i];
+   }
+
+   for (int i=0; i<num_particles; ++i)
+   {
+     particles[i].weight /= weight_sum;
+     weights[i] /= weight_sum;
    }
 
 }
