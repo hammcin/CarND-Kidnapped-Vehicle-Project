@@ -196,6 +196,8 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
      vector<double> sense_x;
      vector<double> sense_y;
 
+     double tot_prob = 1.0;
+
      double sigma_x = std_landmark[0];
      double sigma_y = std_landmark[1];
      double gauss_norm = 1/(2*M_PI*sigma_x*sigma_y);
@@ -224,11 +226,14 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 
            double gauss_prob = gauss_norm*exp(-exponent);
 
-           particles[i].weight *= gauss_prob;
-           weights[i] *= gauss_prob;
+           tot_prob *= gauss_prob;
+
          }
        }
      }
+
+     particles[i].weight = tot_prob;
+     weights[i] = tot_prob;
 
      SetAssociations(particles[i], assocations, sense_x, sense_x);
 
