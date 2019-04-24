@@ -39,7 +39,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
   std::default_random_engine gen;
   normal_distribution<double> dist_x(x, std[0]);
   normal_distribution<double> dist_y(y, std[1]);
-  normal_distribution<double> dist_theta((theta % (2*M_PI)), std[2]);
+  normal_distribution<double> dist_theta(fmod(theta, (2*M_PI)), std[2]);
 
   for (int i=0; i<num_particles; ++i)
   {
@@ -75,12 +75,12 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
    {
      double x_0 = particles[i].x;
      double y_0 = particles[i].y;
-     double theta_0 = particles[i].theta % (2*M_PI);
+     double theta_0 = fmod(particles[i].theta, (2*M_PI));
 
-     double theta_f = (theta_0 + yaw_rate*delta_t) % (2*M_PI);
+     double theta_f = fmod((theta_0 + yaw_rate*delta_t), (2*M_PI));
 
      // double new_theta = theta_f + dist_theta(gen);
-     normal_distribution<double> dist_theta(theta_f, std[2]);
+     normal_distribution<double> dist_theta(theta_f, std_pos[2]);
      double new_theta = dist_theta(gen);
      particles[i].theta = new_theta;
 
@@ -90,12 +90,12 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
      double y_f = y_0 + dy;
 
      // double new_x = x_f + dist_x(gen);
-     normal_distribution<double> dist_x(x_f, std[0]);
+     normal_distribution<double> dist_x(x_f, std_pos[0]);
      double new_x = dist_x(gen);
      particles[i].x = new_x;
 
      // double new_y = y_f + dist_y(gen);
-     normal_distribution<double> dist_y(y_f, std[1]);
+     normal_distribution<double> dist_y(y_f, std_pos[1]);
      double new_y = dist_y(gen);
      particles[i].y = new_y;
 
@@ -119,14 +119,14 @@ void ParticleFilter::dataAssociation(vector<LandmarkObs> predicted,
      if (!predicted.empty())
      {
        double min_d = dist(predicted[0].x, predicted[0].y,
-                            observations[i].x, observations.y[i]);
+                            observations[i].x, observations[i].y);
        observations[i].id = predicted[0].id;
        int min_i = 0;
 
        for (int j=1; j<predicted.size(); ++j)
        {
          double d = dist(predicted[j].x, predicted[j].y,
-                          observations[i].x, observations.y[i]);
+                          observations[i].x, observations[i].y);
 
          if (d < min_d)
          {
@@ -166,7 +166,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 
      double x_part = particles[i].x;
      double y_part = particles[i].y;
-     double theta = particles[i].theta % (2*M_PI);
+     double theta = fmod(particles[i].theta, (2*M_PI));
 
      vector<LandmarkObs> observations_trans;
      for (int j=0; j<observations.size(); ++j)
@@ -243,7 +243,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
      particles[i].weight = tot_prob;
      weights[i] = tot_prob;
 
-     SetAssociations(particles[i], assocations, sense_x, sense_x);
+     SetAssociations(particles[i], associations, sense_x, sense_y);
 
      observations_trans.clear();
      predicted.clear();
@@ -272,7 +272,7 @@ void ParticleFilter::resample() {
    */
 
    std::default_random_engine gen;
-   std::discrete_distribution<> resample_dist(weights);
+   std::discrete_distribution<> resample_dist(weights.begin(), weights.end());
 
    vector<Particle> particles_resample;
    for (int i=0; i<num_particles; ++i)
