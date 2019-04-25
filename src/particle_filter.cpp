@@ -39,7 +39,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
   std::default_random_engine gen;
   normal_distribution<double> dist_x(x, std[0]);
   normal_distribution<double> dist_y(y, std[1]);
-  normal_distribution<double> dist_theta(fmod(theta, (2*M_PI)), std[2]);
+  normal_distribution<double> dist_theta(theta, std[2]);
 
   for (int i=0; i<num_particles; ++i)
   {
@@ -67,34 +67,44 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
    */
 
    std::default_random_engine gen;
-   // normal_distribution<double> dist_x(0.0, std[0]);
-   // normal_distribution<double> dist_y(0.0, std[1]);
-   // normal_distribution<double> dist_theta(0.0, std[2]);
 
    for (int i=0; i<num_particles; ++i)
    {
      double x_0 = particles[i].x;
      double y_0 = particles[i].y;
-     double theta_0 = fmod(particles[i].theta, (2*M_PI));
+     double theta_0 = particles[i].theta;
 
-     double theta_f = fmod((theta_0 + yaw_rate*delta_t), (2*M_PI));
+     double theta_f;
+     double x_f;
+     double y_f;
 
-     // double new_theta = theta_f + dist_theta(gen);
+     if (yaw_rate<0.001)
+     {
+       theta_f = theta_0;
+
+       x_f = x_0 + velocity*delta_t*cos(theta_0);
+
+       y_f = y_0 + velocity*delta_t*sin(theta_0);
+     }
+     else
+     {
+       theta_f = theta_0 + yaw_rate*delta_t;
+
+       double dx = (velocity/yaw_rate)*(sin(theta_f) - sin(theta_0));
+       x_f = x_0 + dx;
+
+       double dy = (velocity/yaw_rate)*(cos(theta_0) - cos(theta_f));
+       y_f = y_0 + dy;
+     }
+
      normal_distribution<double> dist_theta(theta_f, std_pos[2]);
      double new_theta = dist_theta(gen);
      particles[i].theta = new_theta;
 
-     double dx = (velocity/yaw_rate)*(sin(theta_f) - sin(theta_0));
-     double x_f = x_0 + dx;
-     double dy = (velocity/yaw_rate)*(cos(theta_0) - cos(theta_f));
-     double y_f = y_0 + dy;
-
-     // double new_x = x_f + dist_x(gen);
      normal_distribution<double> dist_x(x_f, std_pos[0]);
      double new_x = dist_x(gen);
      particles[i].x = new_x;
 
-     // double new_y = y_f + dist_y(gen);
      normal_distribution<double> dist_y(y_f, std_pos[1]);
      double new_y = dist_y(gen);
      particles[i].y = new_y;
@@ -166,7 +176,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 
      double x_part = particles[i].x;
      double y_part = particles[i].y;
-     double theta = fmod(particles[i].theta, (2*M_PI));
+     double theta = particles[i].theta;
 
      vector<LandmarkObs> observations_trans;
      for (int j=0; j<observations.size(); ++j)
